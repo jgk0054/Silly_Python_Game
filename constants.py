@@ -1,0 +1,11 @@
+WIDTH = 1000
+HEIGHT = 1000
+WHITE = (255, 255, 255)
+BLACK = (0, 0, 0)
+RED = (255, 0, 0)
+GREEN = (0, 255, 0)
+YELLOW = (255, 255, 0)
+FPS = 30
+THRUST_POWER = 50
+BLUE = (0, 0, 255)
+TRANSPARENT_BLUE = (0, 0, 255, 50)  # 50 out of 255 for transparency

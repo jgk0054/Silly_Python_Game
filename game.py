@@ -3,16 +3,16 @@ from planet import Planet
 from star import Star
 from lander import Lander
 from camera import Camera
-from utilities import draw_trajectory, draw_ui
+from utilities import draw_trajectory, draw_ui, polygons_collide
 from constants import WIDTH, HEIGHT, BLACK, FPS
 
 def game_loop(screen):
-    # You can now set either a Star or a Planet as the global primary
-    global_primary = Planet(WIDTH // 2, HEIGHT // 2, radius=10000, gravity_strength=1000000000, soi=1000000, orbit_radius=0, orbit_speed=0, primary=None, name="Gas Giant")  # Example of a gas giant
+    # Set up your planetary system
+    global_primary = Planet(WIDTH // 2, HEIGHT // 2, radius=10000, gravity_strength=1000000000, soi=1000000, orbit_radius=0, orbit_speed=0, primary=None, name="Gas Giant")
 
-    planet1 = Planet(global_primary.x, global_primary.y, radius=1000, gravity_strength=90000000, soi=30000, orbit_radius=25000, orbit_speed=0.02, primary=global_primary)
-    planet2 = Planet(global_primary.x, global_primary.y, radius=1000, gravity_strength=90000000, soi=30000, orbit_radius=40000, orbit_speed=0.0015, primary=global_primary)
-    planet3 = Planet(global_primary.x, global_primary.y, radius=2000, gravity_strength=90000000, soi=30000, orbit_radius=140000, orbit_speed=0.001, primary=global_primary)
+    planet1 = Planet(global_primary.x, global_primary.y, radius=1000, gravity_strength=90000000, soi=30000, orbit_radius=25000, orbit_speed=0.002, primary=global_primary)
+    planet2 = Planet(global_primary.x, global_primary.y, radius=1000, gravity_strength=90000000, soi=30000, orbit_radius=40000, orbit_speed=0.00015, primary=global_primary)
+    planet3 = Planet(global_primary.x, global_primary.y, radius=2000, gravity_strength=90000000, soi=30000, orbit_radius=140000, orbit_speed=0.0001, primary=global_primary)
 
     moon1 = Planet(planet1.x, planet1.y, 200, 100, 200, orbit_radius=3000, orbit_speed=0.01, primary=planet1)
     moon2 = Planet(planet1.x, planet1.y, 150, 50, 150, orbit_radius=5000, orbit_speed=0.005, primary=planet1)
@@ -39,7 +39,7 @@ def game_loop(screen):
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 if reset_button.collidepoint(event.pos):
                     lander.x, lander.y = WIDTH // 2, HEIGHT // 2 + 15000
-                    lander.vx, lander.vy = 0 , 0
+                    lander.vx, lander.vy = 0, 0
                     lander.angle = 0
 
         keys = pygame.key.get_pressed()
@@ -68,6 +68,30 @@ def game_loop(screen):
         lander.apply_gravity(global_primary, planets, delta_time)
         lander.update(delta_time)
 
+        # Collision detection
+        lander_modules = lander.get_transformed_modules()
+        collision_detected = False
+
+        # Include global_primary in collision detection
+        all_planets = [global_primary] + planets
+
+        for planet in all_planets:
+            planet_shape = planet.get_transformed_shape()
+            for module_shape in lander_modules:
+                if polygons_collide(module_shape, planet_shape) and lander.isGrounded == False:
+                    collision_detected = True
+                    print(f"Collision detected between Lander and {planet.name}!")
+                    # Handle collision (e.g., stop lander's movement)
+                    lander.vx = 0
+                    lander.vy = 0
+                    lander.isGrounded = True
+                    # Optionally, you can add more sophisticated collision response here
+                    break  # Exit module loop
+            if collision_detected:
+                break  # Exit planet loop
+            else:
+                lander.isGrounded = False
+
         # Draw everything
         screen.fill(BLACK)
         draw_trajectory(screen, lander, planets, global_primary, camera)
@@ -77,7 +101,7 @@ def game_loop(screen):
 
         lander.draw(screen, camera)
 
-        reset_button = draw_ui(screen, lander, active_body, camera)
+        reset_button = draw_ui(screen, lander, active_body, camera, clock)
 
         camera.update(lander)
         pygame.display.flip()

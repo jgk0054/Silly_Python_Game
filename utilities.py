@@ -20,27 +20,48 @@ def draw_trajectory(screen, lander, planets, star, camera):
     temp_lander.thrusting = False  # Assuming no thrust during prediction
 
     # Create a copy of planets but do not update their positions during simulation
-    temp_planets = [
-        Planet(
-            p.x, p.y, p.radius, p.gravity_strength, p.soi,
-            orbit_radius=p.orbit_radius, orbit_speed=p.orbit_speed, primary=p.primary, name=p.name
-        )
-        for p in planets
-    ]
+    # temp_planets = [
+    #     Planet(
+    #         p.x, p.y, p.radius, p.gravity_strength, p.soi,
+    #         orbit_radius=p.orbit_radius, orbit_speed=p.orbit_speed, primary=p.primary, name=p.name
+    #     )
+    #     for p in planets
+    # ]
     # Planets remain stationary during trajectory prediction
+    temp_planets = []
+    planet_mapping = {}
+    for p in planets:
+        temp_primary = planet_mapping.get(p.primary)
+        temp_planet = Planet(
+            p.x, p.y, p.radius, p.gravity_strength, p.soi,
+            orbit_radius=p.orbit_radius, orbit_speed=p.orbit_speed,
+            primary=temp_primary, name=p.name
+        )
+        temp_planets.append(temp_planet)
+        planet_mapping[p] = temp_planet
+
+
+
 
     num_steps = 500  # Adjust as needed
-    delta_time = 1 / FPS  # Assuming FPS is defined and consistent
+    # delta_time = 1 / FPS  # Assuming FPS is defined and consistent
+    FIXED_DELTA_TIME = 1 / 20.0  # Fixed time step (e.g., 60 updates per second)
+    static_camera = camera.clone()  # Assuming you have a clone method in your Camera class
 
     trajectory_points = []
     for _ in range(num_steps):
+
+        #Update the planets
+        for temp_planet in temp_planets:
+            temp_planet.update(FIXED_DELTA_TIME)
+
         # Apply gravity
-        temp_lander.apply_gravity(star, temp_planets, delta_time)
+        temp_lander.apply_gravity(star, temp_planets, FIXED_DELTA_TIME)
         # Update lander position
-        temp_lander.update(delta_time)
+        temp_lander.update(FIXED_DELTA_TIME)
 
         # Transform position to screen coordinates
-        projected_point = camera.apply(pygame.Vector2(temp_lander.x, temp_lander.y))
+        projected_point = static_camera.apply(pygame.Vector2(temp_lander.x, temp_lander.y))
         trajectory_points.append((int(projected_point[0]), int(projected_point[1])))
 
     # Draw the trajectory
@@ -63,7 +84,7 @@ def calculate_orbital_speed(lander, body):
 
     return relative_velocity - math.sqrt(dx**2 + dy**2) / body.orbit_radius
 
-def draw_ui(screen, lander, active_body, camera):
+def draw_ui(screen, lander, active_body, camera, clock):
     font = pygame.font.SysFont(None, 24)  # Smaller font size
     body_name = "Star"
     
@@ -73,7 +94,9 @@ def draw_ui(screen, lander, active_body, camera):
 
     orbital_speed = calculate_orbital_speed(lander, active_body)
     speed_text = font.render(f"Orbital Speed ({body_name}): {orbital_speed:.2f}", True, WHITE)
+    fps_text = font.render(f"FPS: {clock.get_fps()}", True, WHITE)
     screen.blit(speed_text, (WIDTH - 300, 10))
+    screen.blit(fps_text, (WIDTH - 300, 30))
 
     # Draw compass
     compass_center = (WIDTH - 50, HEIGHT - 50)
@@ -92,3 +115,31 @@ def draw_ui(screen, lander, active_body, camera):
     return reset_button
 
 
+def polygons_collide(poly1, poly2):
+    for polygon in [poly1, poly2]:
+        for i1 in range(len(polygon)):
+            i2 = (i1 + 1) % len(polygon)
+            p1 = polygon[i1]
+            p2 = polygon[i2]
+            
+            normal = (p2[1] - p1[1], p1[0] - p2[0])
+            
+            minA, maxA = None, None
+            for p in poly1:
+                projected = normal[0] * p[0] + normal[1] * p[1]
+                if (minA is None) or (projected < minA):
+                    minA = projected
+                if (maxA is None) or (projected > maxA):
+                    maxA = projected
+
+            minB, maxB = None, None
+            for p in poly2:
+                projected = normal[0] * p[0] + normal[1] * p[1]
+                if (minB is None) or (projected < minB):
+                    minB = projected
+                if (maxB is None) or (projected > maxB):
+                    maxB = projected
+
+            if maxA < minB or maxB < minA:
+                return False  # Separating axis found
+    return True  # No separating axis found, polygons collide

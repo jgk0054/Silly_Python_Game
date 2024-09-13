@@ -20,3 +20,10 @@ class Camera:
 
     def zoom_out(self):
         self.zoom *= 0.9
+        
+    def clone(self):
+        new_camera = Camera(self.width, self.height)
+        new_camera.x = self.x
+        new_camera.y = self.y
+        new_camera.zoom = self.zoom
+        return new_camera

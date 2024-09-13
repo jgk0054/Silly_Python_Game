@@ -90,3 +90,18 @@ class Planet:
         name_surface = font.render(self.name, True, WHITE)
         name_position = camera.apply(pygame.Vector2(self.x, self.y - self.radius - 20))
         screen.blit(name_surface, name_position)
+
+    def get_transformed_shape(self):
+        rotated_shape = [self.rotate_point(px, py, math.degrees(self.angle)) for px, py in self.irregular_shape]
+        transformed_shape = [(self.x + px, self.y + py) for px, py in rotated_shape]
+        return transformed_shape
+    
+    def rotate_point(self, px, py, angle):
+        angle_rad = math.radians(angle)
+        cos_theta = math.cos(angle_rad)
+        sin_theta = math.sin(angle_rad)
+
+        x_new = px * cos_theta - py * sin_theta
+        y_new = px * sin_theta + py * cos_theta
+
+        return x_new, y_new

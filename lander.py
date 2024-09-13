@@ -14,6 +14,7 @@ class Lander:
         self.angle = 0
         self.thrusting = False
         self.modules = modules if modules else []
+        self.isGrounded = False
         self.ROTATION_SPEED = 90  # Degrees per second
         # Find the cabin and set it as the origin
         self.cabin = next((module for module in self.modules if isinstance(module, Cabin)), None)
@@ -90,24 +91,34 @@ class Lander:
         return x, y
 
     def apply_gravity(self, star, planets, delta_time):
-        # Apply gravity from the star
-        dx = star.x - self.x
-        dy = star.y - self.y
-        distance = math.hypot(dx, dy)
-        if distance > 0:
-            force = star.gravity_strength / (distance ** 2)
-            self.vx += (dx / distance) * force * delta_time
-            self.vy += (dy / distance) * force * delta_time
+        total_ax = 0.0
+        total_ay = 0.0
 
-        # Apply gravity from planets
+        # Gravity from planets
         for planet in planets:
             dx = planet.x - self.x
             dy = planet.y - self.y
             distance = math.hypot(dx, dy)
-            if distance > 0:
+            if distance > 0 and planet.is_within_influence(self.x, self.y):
                 force = planet.gravity_strength / (distance ** 2)
-                self.vx += (dx / distance) * force * delta_time
-                self.vy += (dy / distance) * force * delta_time
+                ax = (dx / distance) * force
+                ay = (dy / distance) * force
+                total_ax += ax
+                total_ay += ay
+
+        # Gravity from star if not influenced by any planet
+        if total_ax == 0 and total_ay == 0:
+            dx = star.x - self.x
+            dy = star.y - self.y
+            distance = math.hypot(dx, dy)
+            if distance > 0:
+                force = star.gravity_strength / (distance ** 2)
+                total_ax = (dx / distance) * force
+                total_ay = (dy / distance) * force
+
+        # Update velocities
+        self.vx += total_ax * delta_time
+        self.vy += total_ay * delta_time
 
     def apply_thrust(self, delta_time):
         thrust_x = math.sin(math.radians(self.angle)) * THRUST_POWER * delta_time
@@ -131,3 +142,34 @@ class Lander:
         modules = load_ship(filename)
         x, y = 0, 25000
         return cls(x, y, modules)
+    
+    def get_transformed_modules(self):
+        transformed_modules = []
+        for module in self.modules:
+            rotated_corners = []
+            for corner in module.get_corners():
+                rotated_x, rotated_y = self.rotate_point(corner[0], corner[1], self.angle, 0, 0)
+                world_x = rotated_x + self.x
+                world_y = rotated_y + self.y
+                rotated_corners.append((world_x, world_y))
+            transformed_modules.append(rotated_corners)
+        return transformed_modules
+    
+    def rotate_point(self, px, py, angle, cx, cy):
+        angle_rad = math.radians(angle)
+        cos_theta = math.cos(angle_rad)
+        sin_theta = math.sin(angle_rad)
+
+        # Translate point to origin
+        px -= cx
+        py -= cy
+
+        # Rotate point
+        x_new = px * cos_theta - py * sin_theta
+        y_new = px * sin_theta + py * cos_theta
+
+        # Translate point back
+        x = x_new + cx
+        y = y_new + cy
+
+        return x, y
